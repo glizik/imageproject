@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bits to Image • Journey</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .bit { font-family: monospace; }
+        .packet { transition: all 0.4s ease; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+    <div class="max-w-7xl mx-auto p-6">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Bits → Image</h1>
+                <p class="text-zinc-400">From raw binary to pixels over the network</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="usePreset(0)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Black</button>
+                <button onclick="usePreset(1)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">White</button>
+                <button onclick="usePreset(2)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Checker</button>
+                <button onclick="usePreset(3)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Gradient</button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Sender -->
+            <div class="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2"><i class="fa-solid fa-upload"></i> Sender</h2>
+                <textarea id="binaryInput" class="w-full h-64 bg-black font-mono text-green-400 p-4 rounded-xl border border-zinc-700 focus:outline-none focus:border-blue-500" spellcheck="false">10101010...</textarea>
+                <div class="mt-4 flex gap-3">
+                    <button onclick="startTransmission()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-medium">🚀 Start Transmission</button>
+                    <button onclick="clearInput()" class="px-6 bg-zinc-800 hover:bg-zinc-700 rounded-xl">Clear</button>
+                </div>
+            </div>
+
+            <!-- Network -->
+            <div class="bg-zinc-900 rounded-2xl p-6 border border-zinc-800 flex flex-col">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2"><i class="fa-solid fa-network-wired"></i> Network</h2>
+                <div id="networkViz" class="flex-1 flex items-center justify-center border border-dashed border-zinc-700 rounded-xl bg-black min-h-[300px]">
+                    <div class="text-center">
+                        <div id="packet" class="packet inline-flex items-center gap-2 bg-zinc-800 px-6 py-3 rounded-full text-sm">
+                            📦 Packet traveling...
+                        </div>
+                    </div>
+                </div>
+                <div class="text-xs text-zinc-500 mt-4 text-center">Simulated TCP/IP layers</div>
+            </div>
+
+            <!-- Receiver -->
+            <div class="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2"><i class="fa-solid fa-download"></i> Receiver</h2>
+                <div class="bg-black aspect-square rounded-xl overflow-hidden border border-zinc-700 flex items-center justify-center" id="canvasContainer">
+                    <canvas id="imageCanvas" width="256" height="256" class="max-w-full max-h-full"></canvas>
+                </div>
+                <div id="status" class="mt-4 text-center text-sm text-emerald-400 font-medium">Ready</div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center text-zinc-500 text-sm">
+            Phase 1 • Interactive Demo
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function usePreset(n) {
+            const ta = document.getElementById('binaryInput');
+            let bin = '';
+            if (n === 0) { // Black
+                bin = '0'.repeat(512);
+            } else if (n === 1) { // White
+                bin = '1'.repeat(512);
+            } else if (n === 2) { // Checkerboard
+                for (let i = 0; i < 512; i++) bin += (i % 2) ? '1' : '0';
+            } else if (n === 3) { // Simple gradient
+                bin = '';
+                for (let i = 0; i < 64; i++) {
+                    const v = Math.floor(i / 8 * 15).toString(2).padStart(4, '0');
+                    bin += v.repeat(2);
+                }
+            }
+            ta.value = bin;
+        }
+
+        function clearInput() {
+            document.getElementById('binaryInput').value = '';
+        }
+
+        function startTransmission() {
+            const input = document.getElementById('binaryInput').value.replace(/[^01]/g, '');
+            if (input.length < 64) {
+                alert('Please enter at least 64 bits');
+                return;
+            }
+
+            const status = document.getElementById('status');
+            status.textContent = 'Receiving...';
+            status.className = 'mt-4 text-center text-sm text-amber-400 font-medium';
+
+            // Animate packet
+            const packet = document.getElementById('packet');
+            packet.style.transform = 'translateX(150px)';
+            setTimeout(() => {
+                packet.style.transform = 'translateX(-150px)';
+            }, 300);
+
+            // Render simple image from binary
+            renderImageFromBinary(input);
+        }
+
+        function renderImageFromBinary(binary) {
+            const size = 8; // 8x8 image
+            const imgData = ctx.createImageData(size, size);
+            const data = imgData.data;
+
+            for (let i = 0; i < Math.min(binary.length, size*size*8); i += 8) {
+                const byteStr = binary.substring(i, i+8);
+                const gray = parseInt(byteStr || '00000000', 2);
+                const pixelIndex = Math.floor(i / 8) * 4;
+                if (pixelIndex < data.length) {
+                    data[pixelIndex] = gray;     // R
+                    data[pixelIndex+1] = gray;   // G
+                    data[pixelIndex+2] = gray;   // B
+                    data[pixelIndex+3] = 255;    // A
+                }
+            }
+
+            // Scale up the tiny image
+            ctx.imageSmoothingEnabled = false;
+            ctx.putImageData(imgData, 0, 0);
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 256;
+            tempCanvas.height = 256;
+            const tctx = tempCanvas.getContext('2d');
+            tctx.imageSmoothingEnabled = false;
+            tctx.drawImage(canvas, 0, 0, 256, 256);
+            ctx.drawImage(tempCanvas, 0, 0);
+
+            const status = document.getElementById('status');
+            status.textContent = '✅ Image Received!';
+            status.className = 'mt-4 text-center text-sm text-emerald-400 font-medium';
+        }
+
+        // Initial preset
+        window.onload = () => {
+            usePreset(2);
+        };
+    </script>
+</body>
+</html>
