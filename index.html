@@ -3,154 +3,299 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bits to Image: Journey</title>
+    <title>Bits to Image • Journey</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        body { font-family: 'Courier New', monospace; }
-        .pixel { image-rendering: pixelated; }
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .bit { font-family: monospace; }
+        .packet { transition: all 0.4s ease; }
+        .hex-table td, .hex-table th { font-family: monospace; }
+        canvas { image-rendering: pixelated; }
     </style>
 </head>
-<body class="bg-zinc-950 text-white">
-    <div class="max-w-7xl mx-auto p-8">
-        <h1 class="text-4xl font-bold text-center mb-8">Bits → Image Journey</h1>
-        
-        <!-- Sender -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left: Sender -->
-            <div class="bg-zinc-900 p-6 rounded-xl">
-                <h2 class="text-xl font-bold mb-4">1. Sender - Binary Input</h2>
-                <textarea id="binaryInput" class="w-full h-48 bg-black p-4 font-mono text-green-400 resize-none" placeholder="Paste 0s and 1s here..."></textarea>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+    <div class="max-w-7xl mx-auto p-6">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Bits → Image</h1>
+                <p class="text-zinc-400">From raw binary to PNG over the network</p>
+            </div>
+            <div class="flex gap-3 flex-wrap">
+                <button onclick="usePreset(0)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Black</button>
+                <button onclick="usePreset(1)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">White</button>
+                <button onclick="usePreset(2)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Checker</button>
+                <button onclick="usePreset(3)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Gradient</button>
+                <button onclick="usePreset(4)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Color Check</button>
+                <button onclick="usePreset(5)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Rainbow</button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Sender - Binary & File Layer -->
+            <div class="lg:col-span-5 bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                <h2 class="text-2xl font-semibold mb-4 flex items-center gap-3"><i class="fa-solid fa-upload text-blue-400"></i> Sender - Binary &amp; PNG</h2>
                 
-                <div class="flex flex-wrap gap-2 mt-4">
-                    <button onclick="loadPreset(0)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded">Black</button>
-                    <button onclick="loadPreset(1)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded">White</button>
-                    <button onclick="loadPreset(2)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded">Checkerboard</button>
-                    <button onclick="loadPreset(3)" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded">Gradient</button>
+                <div class="mb-4">
+                    <label class="block text-sm text-zinc-400 mb-2">Raw Binary (0s and 1s)</label>
+                    <textarea id="binaryInput" class="w-full h-48 bg-black font-mono text-emerald-400 p-4 rounded-2xl border border-zinc-700 focus:outline-none focus:border-blue-500 resize-y" spellcheck="false"></textarea>
                 </div>
 
-                <div id="senderPreview" class="mt-6">
-                    <h3 class="text-sm mb-2">Preview</h3>
-                    <canvas id="senderCanvas" width="160" height="160" class="border border-zinc-700 bg-black"></canvas>
+                <!-- Hex View -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-zinc-400">Hex Dump</label>
+                        <span id="byteStats" class="text-xs text-zinc-500 font-mono">0 bytes</span>
+                    </div>
+                    <div id="hexView" class="bg-black border border-zinc-700 rounded-2xl p-4 font-mono text-sm max-h-64 overflow-auto text-amber-300"></div>
+                </div>
+
+                <!-- PNG Structure -->
+                <div>
+                    <label class="block text-sm text-zinc-400 mb-3">Live PNG Structure</label>
+                    <div id="pngStructure" class="space-y-3 text-sm"></div>
+                </div>
+
+                <div class="mt-6 flex gap-3">
+                    <button onclick="toggleColorMode()" id="colorToggle" class="flex-1 bg-violet-600 hover:bg-violet-500 py-3 rounded-2xl font-medium">Grayscale Mode</button>
+                    <button onclick="startTransmission()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 py-3 rounded-2xl font-medium">🚀 Transmit PNG</button>
                 </div>
             </div>
 
-            <!-- Middle: Network -->
-            <div class="bg-zinc-900 p-6 rounded-xl flex flex-col">
-                <h2 class="text-xl font-bold mb-4">2. Network Transmission</h2>
-                <button onclick="startTransmission()" class="bg-green-600 hover:bg-green-500 py-4 px-8 rounded-xl text-xl font-bold">🚀 Start Transmission</button>
-                <div id="networkLog" class="mt-6 flex-1 font-mono text-sm overflow-auto"></div>
+            <!-- Network -->
+            <div class="lg:col-span-3 bg-zinc-900 rounded-3xl p-6 border border-zinc-800 flex flex-col">
+                <h2 class="text-2xl font-semibold mb-4 flex items-center gap-3"><i class="fa-solid fa-network-wired text-orange-400"></i> Network</h2>
+                <div id="networkViz" class="flex-1 flex items-center justify-center border border-dashed border-zinc-700 rounded-3xl bg-black min-h-[380px] relative">
+                    <div class="text-center">
+                        <div id="packet" class="packet inline-flex items-center gap-3 bg-zinc-800 px-8 py-4 rounded-2xl text-sm shadow-lg">
+                            📦 TCP Segment
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 text-xs text-zinc-500 text-center">Simulated TLS + TCP/IP Transmission</div>
             </div>
 
-            <!-- Right: Receiver -->
-            <div class="bg-zinc-900 p-6 rounded-xl">
-                <h2 class="text-xl font-bold mb-4">3. Receiver</h2>
-                <canvas id="receiverCanvas" width="160" height="160" class="border border-zinc-700 bg-black pixel"></canvas>
-                <div id="pngStructure" class="mt-6 text-xs"></div>
+            <!-- Receiver -->
+            <div class="lg:col-span-4 bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                <h2 class="text-2xl font-semibold mb-4 flex items-center gap-3"><i class="fa-solid fa-download text-purple-400"></i> Receiver</h2>
+                <div class="bg-black aspect-square rounded-3xl overflow-hidden border border-zinc-700 flex items-center justify-center" id="canvasContainer">
+                    <canvas id="imageCanvas" width="320" height="320" class="max-w-full max-h-full"></canvas>
+                </div>
+                <div id="status" class="mt-6 text-center text-lg font-medium text-emerald-400">Ready to receive</div>
+                <div id="receiverInfo" class="mt-4 text-xs font-mono text-zinc-500 text-center"></div>
             </div>
+        </div>
+
+        <div class="mt-12 text-center text-zinc-500 text-sm">
+            Phase 2 Enhanced • 16x16 + Hex + Live PNG Structure
         </div>
     </div>
 
     <script>
-        let currentPixels = new Array(64).fill(0);
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        let isColorMode = false;
+        let currentBinary = '';
 
-        function updatePreview() {
-            const input = document.getElementById('binaryInput').value.replace(/[^01]/g, '');
-            const canvas = document.getElementById('senderCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, 160, 160);
+        function updateAll() {
+            const ta = document.getElementById('binaryInput');
+            let bin = ta.value.replace(/[^01]/g, '').slice(0, 16384); // limit
+            currentBinary = bin;
+            ta.value = bin;
 
-            let bits = input.padEnd(512, '0').slice(0, 512);
-            for (let i = 0; i < 64; i++) {
-                const byteStart = i * 8;
-                let value = 0;
-                for (let b = 0; b < 8; b++) {
-                    if (bits[byteStart + b] === '1') value += (1 << (7-b));
-                }
-                const gray = Math.floor(value / 255 * 255);
-                ctx.fillStyle = `rgb(${gray},${gray},${gray})`;
-                const x = (i % 8) * 20;
-                const y = Math.floor(i / 8) * 20;
-                ctx.fillRect(x, y, 20, 20);
-            }
+            updateByteStats(bin);
+            updateHexView(bin);
+            updatePNGStructure(bin);
+            updateSenderPreview(bin);
         }
 
-        function loadPreset(type) {
-            let binary = '';
-            if (type === 0) binary = '0'.repeat(512); // Black
-            else if (type === 1) binary = '1'.repeat(512); // White
-            else if (type === 2) { // Checkerboard
-                for (let i = 0; i < 64; i++) binary += (i%2 === 0 ? '11111111' : '00000000');
+        function updateByteStats(bin) {
+            const bytes = Math.ceil(bin.length / 8);
+            document.getElementById('byteStats').textContent = `${bytes} bytes (${bin.length} bits)`;
+        }
+
+        function updateHexView(bin) {
+            const bytes = [];
+            for (let i = 0; i < bin.length; i += 8) {
+                const byteStr = bin.substring(i, i+8).padEnd(8, '0');
+                const byte = parseInt(byteStr, 2);
+                bytes.push(byte);
             }
-            else if (type === 3) { // Gradient
-                for (let i = 0; i < 64; i++) {
-                    const val = Math.floor((i / 63) * 255).toString(2).padStart(8, '0');
-                    binary += val;
+
+            let html = `<table class="hex-table w-full text-xs"><thead><tr><th class="text-left">Offset</th><th class="text-left">Hex</th><th class="text-left">ASCII</th></tr></thead><tbody>`;
+            for (let i = 0; i < bytes.length; i += 8) {
+                const chunk = bytes.slice(i, i+8);
+                const hexPart = chunk.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+                const asciiPart = chunk.map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.').join('');
+                html += `<tr><td class="text-zinc-500">${(i*8).toString(16).padStart(4,'0')}</td><td>${hexPart}</td><td class="text-zinc-400">${asciiPart}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            document.getElementById('hexView').innerHTML = html;
+        }
+
+        function updatePNGStructure(bin) {
+            const size = 16;
+            const colorType = isColorMode ? 6 : 0; // RGBA or Grayscale
+            const bitDepth = isColorMode ? 8 : 8;
+            const bytesPerPixel = isColorMode ? 4 : 1;
+
+            const pixelDataBytes = size * size * bytesPerPixel;
+
+            let html = `
+                <div class="bg-zinc-950 border border-zinc-700 rounded-2xl p-4 space-y-4 text-xs">
+                    <div><span class="text-blue-400">89 50 4E 47 0D 0A 1A 0A</span> <span class="text-zinc-500">PNG Signature (8 bytes)</span></div>
+                    <div class="flex justify-between">
+                        <div><strong>IHDR</strong> (13 bytes)</div>
+                        <div class="text-right text-zinc-400">Width: ${size} | Height: ${size} | Depth: ${bitDepth} | Type: ${colorType}</div>
+                    </div>
+                    <div><strong>IDAT</strong> <span class="text-amber-300">(~${Math.floor(pixelDataBytes * 0.6)} bytes compressed)</span></div>
+                    <div class="text-emerald-400">IEND</div>
+                </div>
+            `;
+            document.getElementById('pngStructure').innerHTML = html;
+        }
+
+        function updateSenderPreview(bin) {
+            // Simple preview on sender side could be added later
+        }
+
+        function toggleColorMode() {
+            isColorMode = !isColorMode;
+            const btn = document.getElementById('colorToggle');
+            btn.textContent = isColorMode ? 'RGBA Color Mode' : 'Grayscale Mode';
+            btn.classList.toggle('bg-violet-600', !isColorMode);
+            btn.classList.toggle('bg-fuchsia-600', isColorMode);
+            updateAll();
+        }
+
+        function usePreset(n) {
+            const ta = document.getElementById('binaryInput');
+            let bin = '';
+            const size = 16;
+            const pixels = size * size;
+
+            if (n === 0) { // Black
+                bin = '0'.repeat(pixels * 8);
+            } else if (n === 1) { // White
+                bin = '1'.repeat(pixels * 8);
+            } else if (n === 2) { // Checkerboard
+                for (let i = 0; i < pixels; i++) {
+                    const val = (Math.floor(i/size) + (i%size)) % 2 === 0 ? '00000000' : '11111111';
+                    bin += val;
+                }
+            } else if (n === 3) { // Gradient
+                for (let i = 0; i < pixels; i++) {
+                    const v = Math.floor((i % size) / size * 255);
+                    const b = v.toString(2).padStart(8, '0');
+                    bin += b;
+                }
+            } else if (n === 4) { // Color Checkerboard
+                isColorMode = true;
+                document.getElementById('colorToggle').textContent = 'RGBA Color Mode';
+                for (let i = 0; i < pixels; i++) {
+                    const r = ((i % 2) * 255).toString(2).padStart(8,'0');
+                    const g = (Math.floor(i/size) % 2 * 255).toString(2).padStart(8,'0');
+                    bin += r + g + '00000000' + '11111111'; // R G B A
+                }
+            } else if (n === 5) { // Rainbow-ish
+                isColorMode = true;
+                document.getElementById('colorToggle').textContent = 'RGBA Color Mode';
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const r = Math.floor(x / size * 255).toString(2).padStart(8,'0');
+                        const g = Math.floor(y / size * 255).toString(2).padStart(8,'0');
+                        const b = Math.floor((x+y) / (size*2) * 255).toString(2).padStart(8,'0');
+                        bin += r + g + b + '11111111';
+                    }
                 }
             }
-            document.getElementById('binaryInput').value = binary;
-            updatePreview();
+            ta.value = bin;
+            updateAll();
         }
 
         function startTransmission() {
-            const log = document.getElementById('networkLog');
-            log.innerHTML = '<p class="text-green-400">[NETWORK] Starting transmission...</p>';
+            const bin = currentBinary || document.getElementById('binaryInput').value.replace(/[^01]/g, '');
+            if (bin.length < 512) {
+                alert('Need more bits for 16x16 image');
+                return;
+            }
+
+            const status = document.getElementById('status');
+            status.textContent = '🔄 Transmitting via TLS + TCP...';
+            status.className = 'mt-6 text-center text-lg font-medium text-amber-400';
+
+            // Network animation
+            const packet = document.getElementById('packet');
+            packet.style.transition = 'transform 1.8s';
+            packet.style.transform = 'translateX(180px) scale(0.9)';
 
             setTimeout(() => {
-                log.innerHTML += '<p>[PHYSICAL] Bits traveling as electrical signals...</p>';
-            }, 400);
-
-            setTimeout(() => {
-                log.innerHTML += '<p>[DATA LINK] Framing + CRC check...</p>';
-            }, 900);
-
-            setTimeout(() => {
-                log.innerHTML += '<p>[NETWORK] IP Routing...</p>';
-            }, 1400);
-
-            setTimeout(() => {
-                log.innerHTML += '<p>[TRANSPORT] TCP segments received</p>';
-            }, 1900);
-
-            setTimeout(() => {
-                const canvas = document.getElementById('receiverCanvas');
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0,0,160,160);
-
-                const input = document.getElementById('binaryInput').value.replace(/[^01]/g,'').padEnd(512,'0').slice(0,512);
-                for (let i = 0; i < 64; i++) {
-                    const byteStart = i*8;
-                    let value = 0;
-                    for (let b=0; b<8; b++) {
-                        if (input[byteStart+b]==='1') value += 1 << (7-b);
-                    }
-                    const gray = Math.floor(value / 255 * 255);
-                    ctx.fillStyle = `rgb(${gray},${gray},${gray})`;
-                    const x = (i % 8) * 20;
-                    const y = Math.floor(i / 8) * 20;
-                    ctx.fillRect(x, y, 20, 20);
-                }
-
-                log.innerHTML += '<p class="text-green-400">[APPLICATION] Image successfully decoded!</p>';
-
-                // PNG Structure
-                document.getElementById('pngStructure').innerHTML = `
-                    <div class="bg-zinc-800 p-4 rounded">
-                        <strong>PNG Structure:</strong><br>
-                        • PNG Signature (8 bytes)<br>
-                        • IHDR Chunk (Header)<br>
-                        • IDAT Chunk (Image Data)<br>
-                        • IEND Chunk<br>
-                    </div>`;
-            }, 2500);
+                renderImageFromBinary(bin);
+            }, 1800);
         }
 
-        // Auto update preview
-        document.getElementById('binaryInput').addEventListener('input', updatePreview);
+        function renderImageFromBinary(binary) {
+            const size = 16;
+            const bytesPerPixel = isColorMode ? 4 : 1;
+            const imgData = ctx.createImageData(size, size);
+            const data = imgData.data;
 
-        // Load default
-        window.onload = () => loadPreset(0);
+            let bitIndex = 0;
+            for (let i = 0; i < size * size; i++) {
+                const pixelIndex = i * 4;
+
+                if (isColorMode) {
+                    // RGBA from 32 bits
+                    if (bitIndex + 32 <= binary.length) {
+                        const r = parseInt(binary.substring(bitIndex, bitIndex+8), 2);
+                        const g = parseInt(binary.substring(bitIndex+8, bitIndex+16), 2);
+                        const b = parseInt(binary.substring(bitIndex+16, bitIndex+24), 2);
+                        const a = parseInt(binary.substring(bitIndex+24, bitIndex+32), 2);
+                        data[pixelIndex] = r;
+                        data[pixelIndex+1] = g;
+                        data[pixelIndex+2] = b;
+                        data[pixelIndex+3] = a || 255;
+                        bitIndex += 32;
+                    }
+                } else {
+                    // Grayscale
+                    if (bitIndex + 8 <= binary.length) {
+                        const gray = parseInt(binary.substring(bitIndex, bitIndex+8), 2);
+                        data[pixelIndex] = gray;
+                        data[pixelIndex+1] = gray;
+                        data[pixelIndex+2] = gray;
+                        data[pixelIndex+3] = 255;
+                        bitIndex += 8;
+                    }
+                }
+            }
+
+            ctx.imageSmoothingEnabled = false;
+            ctx.putImageData(imgData, 0, 0);
+
+            // Scale up
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 320;
+            tempCanvas.height = 320;
+            const tctx = tempCanvas.getContext('2d');
+            tctx.imageSmoothingEnabled = false;
+            tctx.drawImage(canvas, 0, 0, 320, 320);
+            ctx.drawImage(tempCanvas, 0, 0);
+
+            const status = document.getElementById('status');
+            status.textContent = '✅ PNG Decoded & Rendered!';
+            status.className = 'mt-6 text-center text-lg font-medium text-emerald-400';
+
+            document.getElementById('receiverInfo').innerHTML = `Reconstructed 16×16 ${isColorMode ? 'RGBA' : 'Grayscale'} PNG`;
+        }
+
+        // Event listeners
+        document.getElementById('binaryInput').addEventListener('input', updateAll);
+
+        // Initial load
+        window.onload = () => {
+            usePreset(2);
+        };
     </script>
 </body>
 </html>
